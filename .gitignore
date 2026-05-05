@@ -42,3 +42,6 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+
+# Claude Code internals
+.claude/
