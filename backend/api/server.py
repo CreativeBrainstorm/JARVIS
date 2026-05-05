@@ -7,6 +7,7 @@ from loguru import logger
 from openai import AsyncOpenAI
 
 from backend.api.chat import chat_router
+from backend.api.neurons import neurons_router
 from backend.config import settings
 from backend.core.neuron import load_neurons
 from backend.core.orchestrator import Orchestrator
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="JARVIS", lifespan=lifespan)
 app.include_router(chat_router, prefix="/api")
+app.include_router(neurons_router, prefix="/api")
 
 frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend"
 app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")

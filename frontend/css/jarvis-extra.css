@@ -14,3 +14,81 @@
     content: "▸ via ";
     opacity: 0.7;
 }
+
+/* NEURONS panel — list of neurons with state */
+
+.neuron-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.neuron-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: var(--color-primary-ultra-dim);
+    border-radius: var(--border-radius);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    transition: all var(--transition-fast);
+    cursor: default;
+}
+
+.neuron-item:hover {
+    border-color: var(--border-primary);
+    background: rgba(0, 212, 255, 0.10);
+}
+
+.neuron-name {
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.neuron-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(180, 200, 220, 0.35);
+    box-shadow: none;
+    transition: all 0.25s ease;
+}
+
+/* States */
+
+.neuron-item.is-idle .neuron-dot {
+    background: rgba(180, 200, 220, 0.35);
+}
+
+.neuron-item.is-thinking .neuron-dot {
+    background: #ffcc33;
+    box-shadow: 0 0 8px #ffcc33;
+    animation: neuron-pulse 0.9s ease-in-out infinite;
+}
+
+.neuron-item.is-active {
+    border-color: rgba(0, 216, 255, 0.55);
+    background: rgba(0, 212, 255, 0.14);
+    color: #ffffff;
+}
+
+.neuron-item.is-active .neuron-dot {
+    background: #00d8ff;
+    box-shadow: 0 0 10px #00d8ff, 0 0 18px rgba(0, 216, 255, 0.6);
+    animation: neuron-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes neuron-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 0.75;
+    }
+}
