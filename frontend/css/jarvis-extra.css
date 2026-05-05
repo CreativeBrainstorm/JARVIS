@@ -1,0 +1,16 @@
+/* Sprint 1 extra: per-message neuron tag */
+
+.neuron-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: #00d8ff;
+    opacity: 0.55;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.35rem;
+}
+
+.neuron-tag::before {
+    content: "▸ via ";
+    opacity: 0.7;
+}

@@ -29,7 +29,7 @@
         onMessage: (data) => {
             if (data.type === "response") {
                 hideTyping();
-                appendMessage("jarvis", data.content);
+                appendMessage("jarvis", data.content, data.neuron);
             }
         },
         onClose: () => {
@@ -63,9 +63,15 @@
     });
 
     // ---- Rendering ----
-    function appendMessage(role, content) {
+    function appendMessage(role, content, neuron) {
         const row = document.createElement("div");
         row.className = `message message-${role}`;
+        if (role === "jarvis" && neuron && neuron !== "error") {
+            const tag = document.createElement("div");
+            tag.className = "neuron-tag";
+            tag.textContent = neuron;
+            row.appendChild(tag);
+        }
         const bubble = document.createElement("div");
         bubble.className = "message-bubble";
         bubble.textContent = content;

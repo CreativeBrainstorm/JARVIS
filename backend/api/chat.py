@@ -22,14 +22,16 @@ async def websocket_chat(websocket: WebSocket):
             logger.info(f"User: {message}")
             history.append({"role": "user", "content": message})
             try:
-                response = await orchestrator.process(history)
+                neuron_name, response = await orchestrator.process(history)
             except Exception as e:
                 logger.exception("Orchestrator error")
-                response = f"Error procesando el mensaje: {e}"
+                neuron_name, response = ("error", f"Error procesando el mensaje: {e}")
             history.append({"role": "assistant", "content": response})
             if len(history) > MAX_HISTORY:
                 history = history[-MAX_HISTORY:]
-            logger.info(f"JARVIS: {response[:80]}...")
-            await websocket.send_json({"type": "response", "content": response})
+            logger.info(f"[{neuron_name}] {response[:80]}...")
+            await websocket.send_json(
+                {"type": "response", "content": response, "neuron": neuron_name}
+            )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
