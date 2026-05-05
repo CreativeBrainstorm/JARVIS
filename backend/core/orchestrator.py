@@ -14,20 +14,23 @@ class Orchestrator:
         self.client = openai_client
         self.neurons = neurons
 
-    async def process(self, message: str) -> str:
+    async def process(self, history: list[dict]) -> str:
+        """Process the conversation history and return the assistant reply.
+
+        `history` is a list of {"role": "user"|"assistant", "content": str}
+        with the full conversation so far (oldest first).
+        """
         if not self.neurons:
             return "No hay neuronas configuradas. Añade al menos una en backend/neurons/."
         neuron = next(iter(self.neurons.values()))
-        return await self._invoke_neuron(neuron, message)
+        return await self._invoke_neuron(neuron, history)
 
-    async def _invoke_neuron(self, neuron: Neuron, user_message: str) -> str:
+    async def _invoke_neuron(self, neuron: Neuron, history: list[dict]) -> str:
+        messages = [{"role": "system", "content": neuron.system_prompt}, *history]
         response = await self.client.chat.completions.create(
             model=neuron.model,
             temperature=neuron.temperature,
             max_tokens=neuron.max_tokens,
-            messages=[
-                {"role": "system", "content": neuron.system_prompt},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
         )
         return response.choices[0].message.content or ""
