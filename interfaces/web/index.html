@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JARVIS — Personal AI Assistant HUD Interface">
+    <title>J.A.R.V.I.S. — AI Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/jarvis.css">
+</head>
+<body>
+    <!-- Animated background -->
+    <div id="bg-canvas-container">
+        <canvas id="bg-canvas"></canvas>
+    </div>
+
+    <!-- Scan line overlay -->
+    <div class="scanline-overlay"></div>
+
+    <!-- Main HUD Layout -->
+    <div class="hud-container">
+
+        <!-- Top Bar -->
+        <header class="hud-topbar">
+            <div class="topbar-left">
+                <div class="jarvis-logo">
+                    <span class="logo-bracket">[</span>
+                    <span class="logo-text">J.A.R.V.I.S.</span>
+                    <span class="logo-bracket">]</span>
+                </div>
+                <span class="version-tag">v0.1.0</span>
+            </div>
+            <div class="topbar-center">
+                <div class="status-indicator online" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="status-text">SYSTEMS ONLINE</span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="clock" id="hud-clock">--:--:--</div>
+                <div class="date" id="hud-date">----.--.--</div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="hud-main">
+
+            <!-- Left Sidebar — System Info -->
+            <aside class="hud-sidebar left-sidebar">
+                <div class="sidebar-panel" id="system-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> SYSTEM STATUS
+                    </h3>
+                    <div class="stat-item">
+                        <span class="stat-label">CPU</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" id="cpu-bar" style="width: 0%"></div>
+                        </div>
+                        <span class="stat-value" id="cpu-value">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">RAM</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" id="ram-bar" style="width: 0%"></div>
+                        </div>
+                        <span class="stat-value" id="ram-value">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">DISK</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" id="disk-bar" style="width: 0%"></div>
+                        </div>
+                        <span class="stat-value" id="disk-value">0%</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-panel" id="tools-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> ACTIVE MODULES
+                    </h3>
+                    <div class="module-list" id="module-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="sidebar-panel" id="memory-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> MEMORY
+                    </h3>
+                    <div class="memory-stats">
+                        <div class="memory-item">
+                            <span class="mem-label">STM</span>
+                            <span class="mem-value" id="stm-count">0</span>
+                        </div>
+                        <div class="memory-item">
+                            <span class="mem-label">LTM</span>
+                            <span class="mem-value" id="ltm-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center — Chat Area -->
+            <section class="hud-chat">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages populated by JS -->
+                </div>
+
+                <!-- Typing indicator -->
+                <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="typing-text">JARVIS is processing</span>
+                </div>
+
+                <!-- Input Area -->
+                <div class="chat-input-container">
+                    <div class="input-glow"></div>
+                    <div class="chat-input-wrapper">
+                        <span class="input-prefix">❯</span>
+                        <input 
+                            type="text" 
+                            id="chat-input" 
+                            class="chat-input" 
+                            placeholder="Speak to JARVIS..." 
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+                        <button class="send-btn" id="send-btn" title="Send">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Sidebar — Activity Feed -->
+            <aside class="hud-sidebar right-sidebar">
+                <div class="sidebar-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> ACTIVITY LOG
+                    </h3>
+                    <div class="activity-feed" id="activity-feed">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="sidebar-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> NEURAL ACTIVITY
+                    </h3>
+                    <canvas id="neural-canvas" width="280" height="120"></canvas>
+                </div>
+
+                <div class="sidebar-panel">
+                    <h3 class="panel-title">
+                        <span class="panel-icon">◆</span> QUICK COMMANDS
+                    </h3>
+                    <div class="quick-commands">
+                        <button class="cmd-btn" data-cmd="/status">System Status</button>
+                        <button class="cmd-btn" data-cmd="/tools">List Tools</button>
+                        <button class="cmd-btn" data-cmd="/memory">Memory Status</button>
+                        <button class="cmd-btn" data-cmd="/help">Help</button>
+                    </div>
+                </div>
+            </aside>
+
+        </main>
+
+        <!-- Bottom Bar -->
+        <footer class="hud-bottombar">
+            <div class="bottombar-left">
+                <span class="connection-status" id="ws-status">
+                    <span class="ws-dot disconnected"></span> DISCONNECTED
+                </span>
+            </div>
+            <div class="bottombar-center">
+                <span class="powered-by">POWERED BY ADVANCED AI</span>
+            </div>
+            <div class="bottombar-right">
+                <span class="msg-count" id="msg-count">Messages: 0</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
