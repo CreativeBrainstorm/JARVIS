@@ -321,3 +321,54 @@
 .molecule-svg.is-agent-thinking  .mol-sat.is-idle .mol-sat-dot {
     animation: mol-sat-breath 1.6s ease-in-out infinite;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Core halo — concentric energy rings expanding from the centre
+   ────────────────────────────────────────────────────────────── */
+
+.mol-core-halo {
+    fill: none;
+    stroke: var(--color-primary);
+    stroke-width: 1;
+    stroke-opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mol-halo-wave 5.4s ease-out infinite;
+    pointer-events: none;
+}
+
+.mol-core-halo.halo-a { animation-delay: 0s; }
+.mol-core-halo.halo-b { animation-delay: -1.8s; }
+.mol-core-halo.halo-c { animation-delay: -3.6s; }
+
+@keyframes mol-halo-wave {
+    0%   { r: 28; stroke-opacity: 0; stroke-width: 1.8; }
+    8%   { stroke-opacity: 0.5; }
+    100% { r: 105; stroke-opacity: 0; stroke-width: 0.4; }
+}
+
+.molecule-svg.is-agent-streaming .mol-core-halo,
+.molecule-svg.is-agent-thinking  .mol-core-halo {
+    animation-duration: 2.6s;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel NEURONS — small organic drift on each row so the list
+   doesn't feel statically pinned
+   ────────────────────────────────────────────────────────────── */
+
+.neuron-list .neuron-item {
+    animation: neuron-row-drift 7s ease-in-out infinite;
+}
+
+.neuron-list .neuron-item:nth-child(1) { animation-delay: 0s;    animation-duration: 7.0s; }
+.neuron-list .neuron-item:nth-child(2) { animation-delay: -1.1s; animation-duration: 8.3s; }
+.neuron-list .neuron-item:nth-child(3) { animation-delay: -2.4s; animation-duration: 6.5s; }
+.neuron-list .neuron-item:nth-child(4) { animation-delay: -0.8s; animation-duration: 9.1s; }
+.neuron-list .neuron-item:nth-child(5) { animation-delay: -3.5s; animation-duration: 7.7s; }
+.neuron-list .neuron-item:nth-child(6) { animation-delay: -1.7s; animation-duration: 8.8s; }
+
+@keyframes neuron-row-drift {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(2px); }
+}

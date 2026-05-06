@@ -66,6 +66,10 @@ export function mountMolecule(container) {
 
     // Core
     const coreGroup = el("g", { class: "mol-core" }, svg);
+    // Two concentric halo rings expanding outwards on a loop — energy field
+    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-a" }, coreGroup);
+    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-b" }, coreGroup);
+    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-c" }, coreGroup);
     el(
         "circle",
         {
@@ -145,4 +149,54 @@ export function mountMolecule(container) {
         if ("agentState" in patch) applyCoreState(s.agentState);
         if ("neuronStates" in patch) applyNeuronStates(s.neuronStates);
     });
+
+    // Organic drift — each satellite has its own pair of sine/cosine
+    // frequencies and phases, so the layout breathes and floats instead
+    // of being pinned to a circle. Bond endpoints follow in every frame.
+    const drifters = NEURONS.map((n, i) => {
+        const base = satellitePosition(i, NEURONS.length);
+        const sat = satById.get(n.id);
+        const bond = bondById.get(n.id);
+        return {
+            id: n.id,
+            base,
+            sat,
+            bond,
+            satCircles: sat ? Array.from(sat.querySelectorAll("circle")) : [],
+            fx: 0.00028 + i * 0.00007,   // X frequency (rad/ms)
+            fy: 0.00037 + i * 0.00009,   // Y frequency
+            ax: 5 + (i % 3) * 1.4,        // X amplitude (px in viewBox)
+            ay: 4 + ((i + 1) % 3) * 1.6, // Y amplitude
+            phx: i * 1.7,                // X phase
+            phy: i * 0.93,               // Y phase
+        };
+    });
+
+    let baseT = performance.now();
+    function tick(now) {
+        const t = now - baseT;
+        for (const d of drifters) {
+            const dx = Math.sin(t * d.fx + d.phx) * d.ax;
+            const dy = Math.cos(t * d.fy + d.phy) * d.ay;
+            const x = d.base.x + dx;
+            const y = d.base.y + dy;
+            for (const c of d.satCircles) {
+                c.setAttribute("cx", x.toFixed(2));
+                c.setAttribute("cy", y.toFixed(2));
+            }
+            if (d.bond) {
+                d.bond.setAttribute("x2", x.toFixed(2));
+                d.bond.setAttribute("y2", y.toFixed(2));
+            }
+        }
+        rafId = requestAnimationFrame(tick);
+    }
+    let rafId = requestAnimationFrame(tick);
+
+    // If the molecule is ever unmounted, stop the loop. Best-effort, since
+    // the page itself owns the SVG for now.
+    container.__moleculeStop = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+    };
 }
