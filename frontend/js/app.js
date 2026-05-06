@@ -208,14 +208,6 @@
         }
     });
 
-    // ---- Quick commands (placeholder, send as text) ----
-    document.querySelectorAll(".cmd-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            dom.chatInput.value = btn.dataset.cmd;
-            sendMessage();
-        });
-    });
-
     // ---- Clock ----
     function tickClock() {
         const now = new Date();

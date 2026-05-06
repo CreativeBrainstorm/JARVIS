@@ -490,34 +490,6 @@ body {
     border: 1px solid var(--border-primary);
 }
 
-/* Quick commands */
-.quick-commands {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-}
-
-.cmd-btn {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 1px;
-    padding: 8px 6px;
-    background: var(--color-primary-ultra-dim);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--border-radius);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    text-transform: uppercase;
-}
-
-.cmd-btn:hover {
-    background: rgba(0, 212, 255, 0.15);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    box-shadow: 0 0 12px var(--color-primary-glow);
-}
-
 /* ---- Chat Area ---- */
 .hud-chat {
     flex: 1;
