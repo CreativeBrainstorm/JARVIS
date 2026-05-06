@@ -61,7 +61,20 @@
 /* States */
 
 .neuron-item.is-idle .neuron-dot {
-    background: rgba(180, 200, 220, 0.35);
+    background: rgba(0, 216, 255, 0.45);
+    animation: neuron-idle-breath 4.2s ease-in-out infinite;
+}
+
+.neuron-list .neuron-item:nth-child(1) .neuron-dot { animation-delay: 0s; }
+.neuron-list .neuron-item:nth-child(2) .neuron-dot { animation-delay: -0.7s; }
+.neuron-list .neuron-item:nth-child(3) .neuron-dot { animation-delay: -1.4s; }
+.neuron-list .neuron-item:nth-child(4) .neuron-dot { animation-delay: -2.1s; }
+.neuron-list .neuron-item:nth-child(5) .neuron-dot { animation-delay: -2.8s; }
+.neuron-list .neuron-item:nth-child(6) .neuron-dot { animation-delay: -3.5s; }
+
+@keyframes neuron-idle-breath {
+    0%, 100% { opacity: 0.45; box-shadow: none; }
+    50% { opacity: 0.95; box-shadow: 0 0 5px rgba(0, 216, 255, 0.55); }
 }
 
 .neuron-item.is-thinking .neuron-dot {
@@ -216,4 +229,95 @@
 @keyframes mol-ring-rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Ambient idle — la molécula respira sola sin agente activo
+   ────────────────────────────────────────────────────────────── */
+
+.mol-core-circle.is-idle {
+    animation: mol-core-breath 5s ease-in-out infinite;
+}
+
+@keyframes mol-core-breath {
+    0%, 100% { fill: rgba(0, 212, 255, 0.10); stroke-opacity: 0.85; }
+    50%      { fill: rgba(0, 212, 255, 0.20); stroke-opacity: 1; filter: drop-shadow(0 0 3px var(--color-primary)); }
+}
+
+.mol-sat.is-idle .mol-sat-dot {
+    animation: mol-sat-breath 5.5s ease-in-out infinite;
+}
+
+.mol-sat[data-id="tech"]      .mol-sat-dot { animation-delay: 0s; }
+.mol-sat[data-id="lights"]    .mol-sat-dot { animation-delay: -0.9s; }
+.mol-sat[data-id="sound"]     .mol-sat-dot { animation-delay: -1.8s; }
+.mol-sat[data-id="video"]     .mol-sat-dot { animation-delay: -2.7s; }
+.mol-sat[data-id="logistics"] .mol-sat-dot { animation-delay: -3.6s; }
+.mol-sat[data-id="registry"]  .mol-sat-dot { animation-delay: -4.5s; }
+
+@keyframes mol-sat-breath {
+    0%, 100% { fill: rgba(0, 212, 255, 0.18); stroke-opacity: 0.7; }
+    50%      { fill: rgba(0, 212, 255, 0.34); stroke-opacity: 1; filter: drop-shadow(0 0 3px var(--color-primary)); }
+}
+
+.mol-sat.is-idle .mol-sat-ring {
+    animation: mol-sat-ring-breath 5.5s ease-in-out infinite;
+}
+
+.mol-sat[data-id="tech"]      .mol-sat-ring { animation-delay: -0.4s; }
+.mol-sat[data-id="lights"]    .mol-sat-ring { animation-delay: -1.3s; }
+.mol-sat[data-id="sound"]     .mol-sat-ring { animation-delay: -2.2s; }
+.mol-sat[data-id="video"]     .mol-sat-ring { animation-delay: -3.1s; }
+.mol-sat[data-id="logistics"] .mol-sat-ring { animation-delay: -4.0s; }
+.mol-sat[data-id="registry"]  .mol-sat-ring { animation-delay: -4.9s; }
+
+@keyframes mol-sat-ring-breath {
+    0%, 100% { stroke-opacity: 0.18; r: 17; }
+    50%      { stroke-opacity: 0.4;  r: 19; }
+}
+
+.mol-bond.is-idle {
+    animation: mol-bond-shimmer 9s ease-in-out infinite;
+}
+
+.mol-bond[data-id="tech"]      { animation-delay: 0s; }
+.mol-bond[data-id="lights"]    { animation-delay: -1.5s; }
+.mol-bond[data-id="sound"]     { animation-delay: -3s; }
+.mol-bond[data-id="video"]     { animation-delay: -4.5s; }
+.mol-bond[data-id="logistics"] { animation-delay: -6s; }
+.mol-bond[data-id="registry"]  { animation-delay: -7.5s; }
+
+@keyframes mol-bond-shimmer {
+    0%, 100% { stroke-opacity: 0.14; }
+    50%      { stroke-opacity: 0.34; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Streaming — agente hablando: ondas viajando del núcleo a
+   los satélites por todas las bonds
+   ────────────────────────────────────────────────────────────── */
+
+.molecule-svg.is-agent-streaming .mol-bond {
+    stroke-opacity: 0.6;
+    stroke-width: 1.4;
+    stroke-dasharray: 4 8;
+    animation: mol-bond-flow 1.3s linear infinite;
+}
+
+.molecule-svg.is-agent-thinking .mol-bond {
+    stroke-opacity: 0.42;
+    stroke-width: 1.2;
+    stroke-dasharray: 3 6;
+    animation: mol-bond-flow 2.4s linear infinite;
+}
+
+@keyframes mol-bond-flow {
+    from { stroke-dashoffset: 24; }
+    to   { stroke-dashoffset: 0; }
+}
+
+/* While streaming/thinking, override idle breathing on satellites with a faster pulse so the molecule feels alive */
+.molecule-svg.is-agent-streaming .mol-sat.is-idle .mol-sat-dot,
+.molecule-svg.is-agent-thinking  .mol-sat.is-idle .mol-sat-dot {
+    animation: mol-sat-breath 1.6s ease-in-out infinite;
 }

@@ -118,8 +118,11 @@ export function mountMolecule(container) {
     });
 
     function applyCoreState(agentState) {
+        const v = agentState || "idle";
         coreCircle.classList.remove("is-idle", "is-thinking", "is-streaming");
-        coreCircle.classList.add(`is-${agentState || "idle"}`);
+        coreCircle.classList.add(`is-${v}`);
+        svg.classList.remove("is-agent-idle", "is-agent-thinking", "is-agent-streaming");
+        svg.classList.add(`is-agent-${v}`);
     }
 
     function applyNeuronStates(neuronStates) {

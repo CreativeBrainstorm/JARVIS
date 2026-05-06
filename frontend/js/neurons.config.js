@@ -23,3 +23,13 @@ export const NEURONS = [
     { id: "logistics", label: "LOGISTICS", hue: 130, description: "Producción operativa: hoteles, logística, proveedores" },
     { id: "registry",  label: "REGISTRY",  hue: 30,  description: "Base de datos: clientes, proveedores, venues" },
 ];
+
+export function inferNeuronFromToolName(name) {
+    const n = String(name || "").toLowerCase();
+    if (/light|fixture|focus|spot|gobo|lampar/.test(n)) return "lights";
+    if (/audio|sound|mic|speaker|mixer|\bamp\b|son/.test(n)) return "sound";
+    if (/video|camera|\bcam\b|\bled\b|projector|broadcast|stream|screen/.test(n)) return "video";
+    if (/hotel|transport|supplier|vendor|logist|stock|inventory|weather|climate/.test(n)) return "logistics";
+    if (/client|registry|database|\bsql\b|crm|directory/.test(n)) return "registry";
+    return "tech";
+}

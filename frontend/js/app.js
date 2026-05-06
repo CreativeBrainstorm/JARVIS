@@ -11,12 +11,13 @@ import {
     pushMessage,
     updateMessage,
     setNeurons,
+    setNeuronState,
     setAllNeuronStates,
     pushEvent,
 } from "./state.js";
 import { renderAll } from "./render.js";
 import { mountMolecule } from "./molecule.js";
-import { NEURONS } from "./neurons.config.js";
+import { NEURONS, inferNeuronFromToolName } from "./neurons.config.js";
 import "./animations.js";
 
 mountMolecule(document.getElementById("molecule"));
@@ -96,12 +97,15 @@ if (!getToken()) {
             },
             onToolEvent: (kind, info) => {
                 const name = info?.name || kind;
-                if (info?.phase === "end") {
+                const neuronId = inferNeuronFromToolName(name);
+                if (info?.phase === "start") {
+                    setNeuronState(neuronId, "active");
+                    pushEvent({ kind: "tool", label: `${kind}: ${name} ▸` });
+                } else if (info?.phase === "end") {
+                    setNeuronState(neuronId, "idle");
                     const ok = info.status === "completed" || info.status === "ok";
                     const dur = info.durationMs != null ? ` · ${info.durationMs}ms` : "";
                     pushEvent({ kind: ok ? "tool" : "error", label: `${kind}: ${name} ${ok ? "✓" : "✗"}${dur}` });
-                } else if (info?.phase === "start") {
-                    pushEvent({ kind: "tool", label: `${kind}: ${name} ▸` });
                 }
             },
         },
