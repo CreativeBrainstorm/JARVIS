@@ -16,6 +16,16 @@ const LS_TOKEN = "openclaw.token";
 const LS_GATEWAY_URL = "openclaw.gatewayUrl";
 const LS_SESSION = "openclaw.sessionKey";
 const LS_DEVICE_IDENTITY = "openclaw.deviceIdentity";
+const LS_DEVICE_TOKEN = "openclaw.deviceToken";
+
+function getCachedDeviceToken() {
+    return localStorage.getItem(LS_DEVICE_TOKEN) || null;
+}
+
+function setCachedDeviceToken(token) {
+    if (token) localStorage.setItem(LS_DEVICE_TOKEN, token);
+    else localStorage.removeItem(LS_DEVICE_TOKEN);
+}
 
 export const DEFAULT_GATEWAY_URL = "wss://iabot-openclaw-gateway.slb810.easypanel.host/";
 export const DEFAULT_SESSION = "agent:main:main";
@@ -217,43 +227,53 @@ export class OpenClawClient {
         }
     }
 
-    async _sendConnect() {
+    async _sendConnect(useCachedToken = true) {
         const clientId = "openclaw-control-ui";
         const clientMode = "webchat";
         const role = "operator";
         const scopes = ["operator.read", "operator.write"];
 
-        let device;
-        try {
-            const identity = await loadOrGenerateDeviceIdentity();
-            const ed = await getEd();
-            const signedAtMs = Date.now();
-            const nonce = this.connectNonce ?? "";
-            const canonical = [
-                "v2",
-                identity.deviceId,
-                clientId,
-                clientMode,
-                role,
-                scopes.join(","),
-                String(signedAtMs),
-                this.token,
-                nonce,
-            ].join("|");
-            const sig = await ed.signAsync(
-                new TextEncoder().encode(canonical),
-                b64urlToBytes(identity.privateKey)
-            );
-            device = {
-                id: identity.deviceId,
-                publicKey: identity.publicKey,
-                signature: bytesToB64url(sig),
-                signedAt: signedAtMs,
-                nonce,
-            };
-        } catch (e) {
-            this.handlers.onError?.(e);
-            return;
+        // Fast path: try the cached deviceToken first. If the server
+        // rejects it (rotated/revoked), we transparently fall back to
+        // the full Ed25519 pairing flow below.
+        const cachedToken = useCachedToken ? getCachedDeviceToken() : null;
+
+        let auth, device;
+        if (cachedToken) {
+            auth = { deviceToken: cachedToken };
+        } else {
+            try {
+                const identity = await loadOrGenerateDeviceIdentity();
+                const ed = await getEd();
+                const signedAtMs = Date.now();
+                const nonce = this.connectNonce ?? "";
+                const canonical = [
+                    "v2",
+                    identity.deviceId,
+                    clientId,
+                    clientMode,
+                    role,
+                    scopes.join(","),
+                    String(signedAtMs),
+                    this.token,
+                    nonce,
+                ].join("|");
+                const sig = await ed.signAsync(
+                    new TextEncoder().encode(canonical),
+                    b64urlToBytes(identity.privateKey)
+                );
+                device = {
+                    id: identity.deviceId,
+                    publicKey: identity.publicKey,
+                    signature: bytesToB64url(sig),
+                    signedAt: signedAtMs,
+                    nonce,
+                };
+                auth = { token: this.token };
+            } catch (e) {
+                this.handlers.onError?.(e);
+                return;
+            }
         }
 
         const params = {
@@ -269,16 +289,22 @@ export class OpenClawClient {
             role,
             scopes,
             caps: [],
-            auth: { token: this.token },
-            device,
+            auth,
+            ...(device ? { device } : {}),
             userAgent: navigator.userAgent,
             locale: navigator.language || "es-ES",
         };
         try {
             const res = await this._request("connect", params, 15000);
             if (!res.ok) {
-                const code = res.error?.code;
-                if (code === "INVALID_REQUEST" && /token/i.test(res.error?.message || "")) {
+                const code = String(res.error?.code || "");
+                const msg = String(res.error?.message || "");
+                // Cached deviceToken was rejected — invalidate and try full pairing.
+                if (cachedToken && (/AUTH|TOKEN|UNAUTH|MISMATCH/i.test(code) || /token|unauthor/i.test(msg))) {
+                    setCachedDeviceToken(null);
+                    return this._sendConnect(false);
+                }
+                if (code === "INVALID_REQUEST" && /token/i.test(msg)) {
                     this.handlers.onAuthError?.("bad_token", res.error);
                     this.shouldReconnect = false;
                 } else {
@@ -286,6 +312,11 @@ export class OpenClawClient {
                 }
                 return;
             }
+            // Persist the (possibly rotated) deviceToken returned in the
+            // payload so the next reconnect skips the Ed25519 sign.
+            const issuedToken = res.payload?.auth?.deviceToken;
+            if (issuedToken) setCachedDeviceToken(issuedToken);
+
             this.connected = true;
             this.reconnectDelay = 1000;
             this.handlers.onConnect?.(res.payload);
