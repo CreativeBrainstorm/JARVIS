@@ -94,6 +94,12 @@ if (!getToken()) {
                 update({ agentState: "idle" });
                 pushEvent({ kind: "tool", label: "atlas: stream end" });
             },
+            onToolEvent: (eventName, payload) => {
+                const name = payload?.tool || payload?.name || payload?.skill || "";
+                const status = payload?.status || payload?.phase || "";
+                const label = `${eventName}${name ? ` · ${name}` : ""}${status ? ` (${status})` : ""}`;
+                pushEvent({ kind: "tool", label });
+            },
         },
     });
 

@@ -147,6 +147,10 @@ export class OpenClawClient {
                 this._onChatEvent(msg.payload);
                 return;
             }
+            if (typeof msg.event === "string" && (msg.event.startsWith("tool.") || msg.event.startsWith("tools.") || msg.event.startsWith("skill."))) {
+                this.handlers.onToolEvent?.(msg.event, msg.payload);
+                return;
+            }
             // health, tick, etc. — ignored for now
         }
     }
@@ -156,15 +160,15 @@ export class OpenClawClient {
             minProtocol: 3,
             maxProtocol: 3,
             client: {
-                id: "openclaw-control-ui",
-                version: "0.1.0",
+                id: "openclaw-probe",
+                version: "0.0.1",
                 platform: navigator.platform || "web",
-                mode: "webchat",
+                mode: "probe",
                 instanceId: uuid(),
             },
             role: "operator",
             scopes: ["operator.read", "operator.write"],
-            caps: ["tool-events"],
+            caps: [],
             auth: { token: this.token },
             userAgent: navigator.userAgent,
             locale: navigator.language || "es-ES",
