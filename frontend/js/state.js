@@ -19,6 +19,7 @@ export const state = {
     voiceMode: "off",           // off | passive | active
     voiceListening: false,
     voiceSpeaking: false,
+    voiceInterim: "",           // live partial transcript while listening
 };
 
 const subscribers = new Set();
@@ -72,6 +73,12 @@ export function setAllNeuronStates(value) {
     for (const id of Object.keys(state.neuronStates)) next[id] = value;
     state.neuronStates = next;
     notify({ neuronStates: state.neuronStates });
+}
+
+export function clearMessages() {
+    state.messages = [];
+    state.messageCount = 0;
+    notify({ messages: state.messages, messageCount: state.messageCount, _cleared: true });
 }
 
 export function pushEvent(evt) {

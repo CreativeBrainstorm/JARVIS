@@ -17,6 +17,8 @@ const dom = {
     neuronList: document.getElementById("neuron-list"),
     activityFeed: document.getElementById("activity-feed"),
     micBtn: document.getElementById("mic-btn"),
+    voiceTranscript: document.getElementById("voice-transcript"),
+    voiceTranscriptText: document.getElementById("voice-transcript-text"),
 };
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -69,6 +71,10 @@ function renderMsgCount(state, patch) {
 }
 
 function renderMessages(_state, patch) {
+    if (patch._cleared) {
+        dom.chatMessages.innerHTML = "";
+        messageNodes.clear();
+    }
     if (patch._pushed) {
         const m = patch._pushed;
         const row = document.createElement("div");
@@ -138,19 +144,30 @@ function renderNeurons(state, patch) {
 }
 
 function renderVoice(state, patch) {
-    if (!dom.micBtn) return;
-    if (!("voiceMode" in patch || "voiceListening" in patch || "voiceSpeaking" in patch)) return;
-    const mode = state.voiceMode || "off";
-    dom.micBtn.classList.remove("is-off", "is-passive", "is-active");
-    dom.micBtn.classList.add(`is-${mode}`);
-    dom.micBtn.classList.toggle("is-listening", !!state.voiceListening);
-    dom.micBtn.classList.toggle("is-speaking", !!state.voiceSpeaking);
-    const titleByMode = {
-        off: "Voice: OFF — click to enable (passive read-aloud)",
-        passive: "Voice: PASSIVE — ATLAS reads replies. Click for ACTIVE",
-        active: "Voice: ACTIVE — say 'Jarvis …' to talk. Click to turn OFF",
-    };
-    dom.micBtn.title = titleByMode[mode] || "";
+    if (dom.micBtn && ("voiceMode" in patch || "voiceListening" in patch || "voiceSpeaking" in patch)) {
+        const mode = state.voiceMode || "off";
+        dom.micBtn.classList.remove("is-off", "is-passive", "is-active");
+        dom.micBtn.classList.add(`is-${mode}`);
+        dom.micBtn.classList.toggle("is-listening", !!state.voiceListening);
+        dom.micBtn.classList.toggle("is-speaking", !!state.voiceSpeaking);
+        const titleByMode = {
+            off: "Voice: OFF — click to enable (passive read-aloud)",
+            passive: "Voice: PASSIVE — ATLAS reads replies. Click for ACTIVE",
+            active: "Voice: ACTIVE — say 'Jarvis …' to talk. Click to turn OFF",
+        };
+        dom.micBtn.title = titleByMode[mode] || "";
+    }
+    if (dom.voiceTranscript && ("voiceInterim" in patch || "voiceListening" in patch || "voiceMode" in patch || "voiceSpeaking" in patch)) {
+        const visible =
+            state.voiceMode === "active" &&
+            state.voiceListening &&
+            !state.voiceSpeaking &&
+            !!(state.voiceInterim && state.voiceInterim.trim());
+        dom.voiceTranscript.style.display = visible ? "" : "none";
+        if (visible && dom.voiceTranscriptText) {
+            dom.voiceTranscriptText.textContent = state.voiceInterim;
+        }
+    }
 }
 
 function renderActivity(_state, patch) {

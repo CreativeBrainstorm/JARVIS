@@ -209,6 +209,42 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Live voice transcript — interim STT result while in active mode
+   ────────────────────────────────────────────────────────────── */
+
+.voice-transcript {
+    margin: 0 auto 8px;
+    padding: 6px 12px;
+    max-width: 80%;
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 216, 255, 0.28);
+    border-radius: 999px;
+    text-align: left;
+    letter-spacing: 0.02em;
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+.voice-transcript .vt-prefix {
+    color: var(--color-primary);
+    margin-right: 6px;
+    animation: vt-caret 1s steps(2, end) infinite;
+}
+
+.voice-transcript .vt-text {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+@keyframes vt-caret {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.2; }
+}
+
+/* ──────────────────────────────────────────────────────────────
    Microphone toggle in the input bar (off / passive / active)
    plus listening + speaking visual states
    ────────────────────────────────────────────────────────────── */

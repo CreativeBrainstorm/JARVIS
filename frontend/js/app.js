@@ -12,12 +12,14 @@ import {
     updateMessage,
     setNeurons,
     setNeuronState,
+    clearMessages,
     pushEvent,
 } from "./state.js";
 import { renderAll } from "./render.js";
 import { mountMolecule } from "./molecule.js";
 import { NEURONS, inferNeuronFromToolName } from "./neurons.config.js";
 import { Voice } from "./voice.js";
+import { matchCommand } from "./commands.js";
 import "./animations.js";
 
 mountMolecule(document.getElementById("molecule"));
@@ -123,6 +125,14 @@ if (!getToken()) {
     // ─── Voice (TTS + STT with wake-word) ──────────────────────────────
     const voice = new Voice({
         onTranscript: (text) => {
+            // Local commands run before the agent ever sees the transcript.
+            const cmd = matchCommand(text);
+            if (cmd) {
+                pushEvent({ kind: "info", label: `voice cmd · ${cmd.id}` });
+                const ack = cmd.run({ voice, clearMessages, pushEvent });
+                if (ack) voice.speak(ack);
+                return;
+            }
             if (state.wsStatus !== "connected") {
                 pushEvent({ kind: "error", label: "voice · not connected" });
                 return;
@@ -134,6 +144,9 @@ if (!getToken()) {
             pushMessage({ role: "user", text });
             pushEvent({ kind: "info", label: `→ voice · ${text.length} chars` });
             update({ agentState: "thinking" });
+        },
+        onInterim: (text) => {
+            update({ voiceInterim: text });
         },
         onState: ({ mode, listening, speaking }) => {
             update({ voiceMode: mode, voiceListening: listening, voiceSpeaking: speaking });

@@ -20,6 +20,10 @@ const LS_VOICE_MODE = "openclaw.voiceMode";
 // yarvis (very common from es-ES recognition), charvis, javis…
 const WAKE_RE = /^(?:hey\s+|ok\s+|oye\s+)?(?:jarvis|j[aá]rvis|yarvis|charvis|j[aá]vis)\b[\s,.\-:!?]*([^]*)$/i;
 
+// Window after a bare wake word during which the next final transcript is
+// taken as a prompt without having to re-say "Jarvis".
+const FOLLOWUP_WINDOW_MS = 6500;
+
 const validModes = new Set(["off", "passive", "active"]);
 
 export class Voice {
@@ -32,6 +36,7 @@ export class Voice {
      */
     constructor(opts = {}) {
         this.onTranscript = opts.onTranscript || (() => {});
+        this.onInterim = opts.onInterim || (() => {});
         this.onState = opts.onState || (() => {});
         this.onError = opts.onError || (() => {});
 
@@ -45,6 +50,14 @@ export class Voice {
         this._voicesCache = null;
         this._restartTimer = null;
         this._supportError = null;
+
+        // Bare-wake-word follow-up: the user said "Jarvis" with no payload;
+        // accept the next final transcript as a prompt without requiring
+        // the wake word again.
+        this._followUpUntil = 0;
+
+        // Lazy AudioContext for the wake-ack beep.
+        this._audioCtx = null;
 
         this._initVoices();
         this._initRecognition();
@@ -138,13 +151,19 @@ export class Voice {
             }
         };
         rec.onresult = (ev) => {
+            // Also feed interim results to the UI so the user sees what the
+            // browser is hearing in real time.
+            let interim = "";
             for (let i = ev.resultIndex; i < ev.results.length; i++) {
                 const r = ev.results[i];
                 if (r.isFinal) {
                     const text = String(r[0]?.transcript || "").trim();
                     if (text) this._handleFinalTranscript(text);
+                } else {
+                    interim += String(r[0]?.transcript || "");
                 }
             }
+            this.onInterim(interim.trim());
         };
 
         this.recognition = rec;
@@ -167,11 +186,57 @@ export class Voice {
     }
 
     _handleFinalTranscript(text) {
+        // Clear any leftover interim string in the UI now that we have a
+        // committed transcript.
+        this.onInterim("");
+
         const m = text.match(WAKE_RE);
-        if (!m) return; // No wake word → ignore.
-        const prompt = (m[1] || "").trim().replace(/^[,.;:!?\-\s]+/, "");
-        if (!prompt) return; // Heard the wake word with no follow-up.
-        this.onTranscript(prompt);
+        if (m) {
+            const prompt = (m[1] || "").trim().replace(/^[,.;:!?\-\s]+/, "");
+            if (prompt) {
+                this._followUpUntil = 0;
+                this.onTranscript(prompt);
+                return;
+            }
+            // Bare wake word: ack with a beep and open a follow-up window.
+            this._beepAck();
+            this._followUpUntil = Date.now() + FOLLOWUP_WINDOW_MS;
+            return;
+        }
+
+        // No wake word — but if we just heard "Jarvis" and the follow-up
+        // window is still open, accept this transcript as the prompt.
+        if (Date.now() < this._followUpUntil) {
+            this._followUpUntil = 0;
+            const prompt = text.replace(/^[,.;:!?\-\s]+/, "").trim();
+            if (prompt) this.onTranscript(prompt);
+        }
+        // Otherwise: idle chatter, drop silently.
+    }
+
+    _beepAck() {
+        try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            if (!this._audioCtx) this._audioCtx = new Ctx();
+            const ctx = this._audioCtx;
+            // Resume if suspended (autoplay policy after a tab gesture).
+            if (ctx.state === "suspended") ctx.resume?.();
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(1320, now + 0.09);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.18, now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.13);
+        } catch (_) {
+            // Audio is best-effort; never let a beep failure break STT.
+        }
     }
 
     // ─── synthesis ─────────────────────────────────────────────────────
