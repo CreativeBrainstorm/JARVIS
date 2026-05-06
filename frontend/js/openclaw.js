@@ -310,6 +310,18 @@ export class OpenClawClient {
             }
         } else if (payload.stream === "assistant") {
             this.handlers.onAssistantDelta?.(payload.data?.delta || "", payload.data?.text || "", payload);
+        } else if (payload.stream === "item") {
+            const d = payload.data || {};
+            const isTool = d.kind === "tool" || (typeof d.itemId === "string" && d.itemId.startsWith("tool:"));
+            const isCmd = d.kind === "command" || (typeof d.itemId === "string" && d.itemId.startsWith("command:"));
+            if (isTool || isCmd) {
+                this.handlers.onToolEvent?.(isTool ? "tool" : "command", {
+                    name: d.name || d.title || (isCmd ? "command" : "tool"),
+                    phase: d.phase,
+                    status: d.status,
+                    durationMs: d.endedAt && d.startedAt ? d.endedAt - d.startedAt : undefined,
+                });
+            }
         }
     }
 

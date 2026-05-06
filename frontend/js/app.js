@@ -94,11 +94,15 @@ if (!getToken()) {
                 update({ agentState: "idle" });
                 pushEvent({ kind: "tool", label: "atlas: stream end" });
             },
-            onToolEvent: (eventName, payload) => {
-                const name = payload?.tool || payload?.name || payload?.skill || "";
-                const status = payload?.status || payload?.phase || "";
-                const label = `${eventName}${name ? ` · ${name}` : ""}${status ? ` (${status})` : ""}`;
-                pushEvent({ kind: "tool", label });
+            onToolEvent: (kind, info) => {
+                const name = info?.name || kind;
+                if (info?.phase === "end") {
+                    const ok = info.status === "completed" || info.status === "ok";
+                    const dur = info.durationMs != null ? ` · ${info.durationMs}ms` : "";
+                    pushEvent({ kind: ok ? "tool" : "error", label: `${kind}: ${name} ${ok ? "✓" : "✗"}${dur}` });
+                } else if (info?.phase === "start") {
+                    pushEvent({ kind: "tool", label: `${kind}: ${name} ▸` });
+                }
             },
         },
     });
