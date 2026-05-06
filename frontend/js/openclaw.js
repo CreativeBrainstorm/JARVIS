@@ -15,6 +15,7 @@
 const LS_TOKEN = "openclaw.token";
 const LS_GATEWAY_URL = "openclaw.gatewayUrl";
 const LS_SESSION = "openclaw.sessionKey";
+const LS_DEVICE_IDENTITY = "openclaw.deviceIdentity";
 
 export const DEFAULT_GATEWAY_URL = "wss://iabot-openclaw-gateway.slb810.easypanel.host/";
 export const DEFAULT_SESSION = "agent:main:main";
@@ -25,6 +26,66 @@ function uuid() {
         const r = (Math.random() * 16) | 0;
         return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
     });
+}
+
+let _edPromise = null;
+function getEd() {
+    if (!_edPromise) {
+        _edPromise = import("https://esm.sh/@noble/ed25519@2.1.0");
+    }
+    return _edPromise;
+}
+
+function bytesToHex(bytes) {
+    let s = "";
+    for (const b of bytes) s += b.toString(16).padStart(2, "0");
+    return s;
+}
+
+function bytesToB64url(bytes) {
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function b64urlToBytes(s) {
+    const t = s.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = t + "=".repeat((4 - (t.length % 4)) % 4);
+    const bin = atob(padded);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+async function loadOrGenerateDeviceIdentity() {
+    const raw = localStorage.getItem(LS_DEVICE_IDENTITY);
+    if (raw) {
+        try {
+            const stored = JSON.parse(raw);
+            if (
+                stored?.version === 1 &&
+                typeof stored.deviceId === "string" &&
+                typeof stored.publicKey === "string" &&
+                typeof stored.privateKey === "string"
+            ) {
+                return stored;
+            }
+        } catch (_) {}
+    }
+    const ed = await getEd();
+    const priv = (ed.utils.randomSecretKey || ed.utils.randomPrivateKey)();
+    const pub = await ed.getPublicKeyAsync(priv);
+    const idHashBuf = await crypto.subtle.digest("SHA-256", pub.slice().buffer);
+    const deviceId = bytesToHex(new Uint8Array(idHashBuf));
+    const identity = {
+        version: 1,
+        deviceId,
+        publicKey: bytesToB64url(pub),
+        privateKey: bytesToB64url(priv),
+        createdAt: Date.now(),
+    };
+    localStorage.setItem(LS_DEVICE_IDENTITY, JSON.stringify(identity));
+    return identity;
 }
 
 function captureUrlParamsToLocalStorage() {
@@ -136,6 +197,7 @@ export class OpenClawClient {
 
         if (msg.type === "event") {
             if (msg.event === "connect.challenge") {
+                this.connectNonce = msg.payload?.nonce ?? "";
                 await this._sendConnect();
                 return;
             }
@@ -156,20 +218,59 @@ export class OpenClawClient {
     }
 
     async _sendConnect() {
+        const clientId = "openclaw-control-ui";
+        const clientMode = "webchat";
+        const role = "operator";
+        const scopes = ["operator.read", "operator.write"];
+
+        let device;
+        try {
+            const identity = await loadOrGenerateDeviceIdentity();
+            const ed = await getEd();
+            const signedAtMs = Date.now();
+            const nonce = this.connectNonce ?? "";
+            const canonical = [
+                "v2",
+                identity.deviceId,
+                clientId,
+                clientMode,
+                role,
+                scopes.join(","),
+                String(signedAtMs),
+                this.token,
+                nonce,
+            ].join("|");
+            const sig = await ed.signAsync(
+                new TextEncoder().encode(canonical),
+                b64urlToBytes(identity.privateKey)
+            );
+            device = {
+                id: identity.deviceId,
+                publicKey: identity.publicKey,
+                signature: bytesToB64url(sig),
+                signedAt: signedAtMs,
+                nonce,
+            };
+        } catch (e) {
+            this.handlers.onError?.(e);
+            return;
+        }
+
         const params = {
             minProtocol: 3,
             maxProtocol: 3,
             client: {
-                id: "openclaw-probe",
-                version: "0.0.1",
+                id: clientId,
+                version: "0.1.0",
                 platform: navigator.platform || "web",
-                mode: "probe",
+                mode: clientMode,
                 instanceId: uuid(),
             },
-            role: "operator",
-            scopes: ["operator.read", "operator.write"],
+            role,
+            scopes,
             caps: [],
             auth: { token: this.token },
+            device,
             userAgent: navigator.userAgent,
             locale: navigator.language || "es-ES",
         };
