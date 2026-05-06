@@ -12,7 +12,6 @@ import {
     updateMessage,
     setNeurons,
     setNeuronState,
-    setAllNeuronStates,
     pushEvent,
 } from "./state.js";
 import { renderAll } from "./render.js";
@@ -77,7 +76,6 @@ if (!getToken()) {
             },
             onAssistantStart: () => {
                 update({ agentState: "streaming" });
-                setAllNeuronStates("idle");
                 pushEvent({ kind: "tool", label: "atlas: stream start" });
                 const m = pushMessage({ role: "assistant", text: "" });
                 streamingId = m.id;
@@ -133,7 +131,6 @@ if (!getToken()) {
         pushEvent({ kind: "info", label: `→ user · ${text.length} chars` });
         chatInput.value = "";
         update({ agentState: "thinking" });
-        setAllNeuronStates("thinking");
     }
 
     sendBtn.addEventListener("click", sendMessage);

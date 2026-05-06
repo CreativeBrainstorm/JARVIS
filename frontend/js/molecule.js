@@ -66,10 +66,6 @@ export function mountMolecule(container) {
 
     // Core
     const coreGroup = el("g", { class: "mol-core" }, svg);
-    // Two concentric halo rings expanding outwards on a loop — energy field
-    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-a" }, coreGroup);
-    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-b" }, coreGroup);
-    el("circle", { cx: CENTER_X, cy: CENTER_Y, r: CORE_R, class: "mol-core-halo halo-c" }, coreGroup);
     el(
         "circle",
         {
