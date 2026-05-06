@@ -9,8 +9,7 @@ export const state = {
     agentState: "idle",         // idle | thinking | streaming
     activityLevel: 0,           // 0..1, drives ambient animations
 
-    skills: [],                 // [{name, displayName, description}]
-    skillStates: {},            // { skillName: idle | thinking | active }
+    neuronStates: {},           // { neuronId: idle | thinking | active }
 
     messages: [],               // [{id, role, text, neuron?, ts}]
     messageCount: 0,
@@ -50,17 +49,21 @@ export function updateMessage(id, patch) {
     notify({ _updated: m });
 }
 
-export function setSkills(skills) {
-    state.skills = skills;
+export function setNeurons(neurons) {
     const next = {};
-    for (const s of skills) next[s.name] = state.skillStates[s.name] || "idle";
-    state.skillStates = next;
-    notify({ skills, skillStates: state.skillStates });
+    for (const n of neurons) next[n.id] = state.neuronStates[n.id] || "idle";
+    state.neuronStates = next;
+    notify({ neuronStates: state.neuronStates });
 }
 
-export function setAllSkillStates(value) {
+export function setNeuronState(id, value) {
+    state.neuronStates = { ...state.neuronStates, [id]: value };
+    notify({ neuronStates: state.neuronStates });
+}
+
+export function setAllNeuronStates(value) {
     const next = {};
-    for (const s of state.skills) next[s.name] = value;
-    state.skillStates = next;
-    notify({ skillStates: state.skillStates });
+    for (const id of Object.keys(state.neuronStates)) next[id] = value;
+    state.neuronStates = next;
+    notify({ neuronStates: state.neuronStates });
 }

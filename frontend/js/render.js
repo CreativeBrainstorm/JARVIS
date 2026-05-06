@@ -3,6 +3,7 @@
  * (the partial object emitted by state.update) and updates only
  * the DOM affected by that patch.
  */
+import { NEURONS } from "./neurons.config.js";
 
 const ASSISTANT_NAME = "ATLAS";
 
@@ -96,38 +97,34 @@ function renderMessages(_state, patch) {
     }
 }
 
-function renderSkills(state, patch) {
-    if ("skills" in patch) {
-        dom.neuronList.innerHTML = "";
-        if (state.skills.length === 0) {
-            const empty = document.createElement("div");
-            empty.className = "neuron-item is-idle";
-            empty.style.opacity = "0.5";
-            empty.textContent = "(no skills loaded)";
-            dom.neuronList.appendChild(empty);
-        } else {
-            for (const t of state.skills) {
-                const item = document.createElement("div");
-                item.className = "neuron-item is-idle";
-                item.dataset.name = t.name;
-                item.title = t.description || t.displayName || t.name;
-                const dot = document.createElement("span");
-                dot.className = "neuron-dot";
-                const label = document.createElement("span");
-                label.className = "neuron-name";
-                label.textContent = t.displayName || t.name;
-                item.appendChild(dot);
-                item.appendChild(label);
-                dom.neuronList.appendChild(item);
-            }
-        }
+// Build the static neurons list once. State changes only toggle classes.
+function mountNeuronsList() {
+    if (!dom.neuronList || dom.neuronList.dataset.mounted === "1") return;
+    dom.neuronList.innerHTML = "";
+    for (const n of NEURONS) {
+        const item = document.createElement("div");
+        item.className = "neuron-item is-idle";
+        item.dataset.id = n.id;
+        item.title = n.description || n.label;
+        const dot = document.createElement("span");
+        dot.className = "neuron-dot";
+        const label = document.createElement("span");
+        label.className = "neuron-name";
+        label.textContent = n.label;
+        item.appendChild(dot);
+        item.appendChild(label);
+        dom.neuronList.appendChild(item);
     }
-    if ("skillStates" in patch) {
-        for (const item of dom.neuronList.querySelectorAll("[data-name]")) {
-            const s = state.skillStates[item.dataset.name] || "idle";
-            item.classList.remove("is-idle", "is-thinking", "is-active");
-            item.classList.add(`is-${s}`);
-        }
+    dom.neuronList.dataset.mounted = "1";
+}
+
+function renderNeurons(state, patch) {
+    mountNeuronsList();
+    if (!("neuronStates" in patch)) return;
+    for (const item of dom.neuronList.querySelectorAll("[data-id]")) {
+        const s = state.neuronStates[item.dataset.id] || "idle";
+        item.classList.remove("is-idle", "is-thinking", "is-active");
+        item.classList.add(`is-${s}`);
     }
 }
 
@@ -137,5 +134,5 @@ export function renderAll(state, patch) {
     renderTyping(state, patch);
     renderMsgCount(state, patch);
     renderMessages(state, patch);
-    renderSkills(state, patch);
+    renderNeurons(state, patch);
 }

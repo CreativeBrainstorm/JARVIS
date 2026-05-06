@@ -4,8 +4,6 @@
  * `agentState` from the store so its activity tracks what the
  * agent is doing.
  */
-import { state, subscribe } from "./state.js";
-
 class ParticleBackground {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -81,92 +79,4 @@ class ParticleBackground {
     }
 }
 
-class NeuralActivityGraph {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) return;
-
-        this.ctx = this.canvas.getContext("2d");
-        this.data = new Array(100).fill(0);
-        this.isActive = false;
-        this.animationId = null;
-        this.baseLevel = 0.15;
-
-        subscribe((s, patch) => {
-            if ("agentState" in patch) {
-                this.isActive = s.agentState === "thinking" || s.agentState === "streaming";
-            }
-        });
-
-        this._loop();
-    }
-
-    _loop() {
-        const draw = () => {
-            this.data.shift();
-            const value = this.isActive
-                ? 0.3 + Math.random() * 0.6 + Math.sin(Date.now() / 100) * 0.15
-                : this.baseLevel + Math.sin(Date.now() / 800) * 0.08 + Math.random() * 0.05;
-            this.data.push(Math.min(1, Math.max(0, value)));
-
-            const w = this.canvas.width;
-            const h = this.canvas.height;
-            const ctx = this.ctx;
-            ctx.clearRect(0, 0, w, h);
-
-            ctx.strokeStyle = "rgba(0, 212, 255, 0.05)";
-            ctx.lineWidth = 0.5;
-            for (let y = 0; y < h; y += 20) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.stroke();
-            }
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, h);
-            gradient.addColorStop(0, "rgba(0, 212, 255, 0.4)");
-            gradient.addColorStop(1, "rgba(0, 212, 255, 0)");
-
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            for (let i = 0; i < this.data.length; i++) {
-                const x = (i / this.data.length) * w;
-                const y = h - this.data[i] * h * 0.8 - 5;
-                if (i === 0) {
-                    ctx.lineTo(x, y);
-                } else {
-                    const prevX = ((i - 1) / this.data.length) * w;
-                    const prevY = h - this.data[i - 1] * h * 0.8 - 5;
-                    const cpX = (prevX + x) / 2;
-                    ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
-                }
-            }
-            ctx.lineTo(w, h);
-            ctx.closePath();
-            ctx.fillStyle = gradient;
-            ctx.fill();
-
-            ctx.beginPath();
-            for (let i = 0; i < this.data.length; i++) {
-                const x = (i / this.data.length) * w;
-                const y = h - this.data[i] * h * 0.8 - 5;
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.strokeStyle = this.isActive
-                ? "rgba(0, 255, 136, 0.8)"
-                : "rgba(0, 212, 255, 0.6)";
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            this.animationId = requestAnimationFrame(draw);
-        };
-        draw();
-    }
-}
-
 new ParticleBackground("bg-canvas");
-new NeuralActivityGraph("neural-canvas");
-
-// Reference state to silence "unused import" linters when no patch yet exists.
-void state;

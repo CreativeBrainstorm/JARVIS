@@ -10,22 +10,27 @@ import {
     update,
     pushMessage,
     updateMessage,
-    setSkills,
-    setAllSkillStates,
+    setNeurons,
+    setAllNeuronStates,
 } from "./state.js";
 import { renderAll } from "./render.js";
+import { mountMolecule } from "./molecule.js";
+import { NEURONS } from "./neurons.config.js";
 import "./animations.js";
+
+mountMolecule(document.getElementById("molecule"));
+
+// Seed neuron states from config (all idle).
+setNeurons(NEURONS);
 
 subscribe((s, patch) => renderAll(s, patch));
 
-// First paint with the full state as a single patch.
 renderAll(state, {
     wsStatus: state.wsStatus,
     agentState: state.agentState,
     messages: state.messages,
     messageCount: state.messageCount,
-    skills: state.skills,
-    skillStates: state.skillStates,
+    neuronStates: state.neuronStates,
 });
 
 let streamingId = null;
@@ -60,20 +65,9 @@ if (!getToken()) {
                 });
             },
             onError: (err) => console.error("OpenClaw error", err),
-            onTools: (catalog) => {
-                const list =
-                    (catalog?.tools || catalog?.skills || (Array.isArray(catalog) ? catalog : [])) || [];
-                setSkills(
-                    list.map((t) => ({
-                        name: t.name || t.id || "?",
-                        displayName: t.displayName || t.title || t.name,
-                        description: t.description || "",
-                    })),
-                );
-            },
             onAssistantStart: () => {
                 update({ agentState: "streaming" });
-                setAllSkillStates("idle");
+                setAllNeuronStates("idle");
                 const m = pushMessage({ role: "assistant", text: "" });
                 streamingId = m.id;
             },
@@ -112,7 +106,7 @@ if (!getToken()) {
         pushMessage({ role: "user", text });
         chatInput.value = "";
         update({ agentState: "thinking" });
-        setAllSkillStates("thinking");
+        setAllNeuronStates("thinking");
     }
 
     sendBtn.addEventListener("click", sendMessage);
