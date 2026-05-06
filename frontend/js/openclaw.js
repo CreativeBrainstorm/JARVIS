@@ -153,10 +153,10 @@
                 minProtocol: 3,
                 maxProtocol: 3,
                 client: {
-                    id: "jarvis-hud",
-                    version: "0.1.0",
+                    id: "openclaw-probe",
+                    version: "0.0.1",
                     platform: navigator.platform || "web",
-                    mode: "webchat",
+                    mode: "probe",
                     instanceId: uuid(),
                 },
                 role: "operator",
