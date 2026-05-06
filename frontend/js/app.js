@@ -1,8 +1,14 @@
 /**
- * JARVIS HUD — main app logic (Sprint 1: chat only).
+ * JARVIS HUD — talks directly to the OpenClaw gateway over WebSocket.
+ *
+ * No backend of our own — the gateway is the single source of truth.
+ * Token + gatewayUrl + session are persisted to localStorage; first time
+ * the user opens the page they should append `?token=...` to the URL.
  */
 (function () {
     "use strict";
+
+    const ASSISTANT_NAME = "ATLAS";
 
     const dom = {
         chatMessages: document.getElementById("chat-messages"),
@@ -19,131 +25,74 @@
     };
 
     let messageCount = 0;
-    const neuronEls = {}; // name -> li element
+    const skillEls = {}; // skill name -> item element
+    let activeBubble = null; // streaming target
 
-    // ---- Neurons panel ----
-    async function loadNeurons() {
-        try {
-            const res = await fetch("/api/neurons");
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            renderNeurons(data.neurons || []);
-        } catch (err) {
-            console.error("Failed to load neurons", err);
-        }
-    }
-
-    function renderNeurons(neurons) {
+    // ---- Skills panel ----
+    function renderSkills(catalog) {
+        const tools = (catalog && (catalog.tools || catalog.skills || catalog)) || [];
+        const list = Array.isArray(tools) ? tools : [];
         dom.neuronList.innerHTML = "";
-        for (const n of neurons) {
+        for (const t of list) {
+            const name = t.name || t.id || "?";
+            const display = t.displayName || t.title || name;
             const item = document.createElement("div");
             item.className = "neuron-item is-idle";
-            item.title = n.description || n.display_name;
+            item.title = t.description || display;
             const dot = document.createElement("span");
             dot.className = "neuron-dot";
             const label = document.createElement("span");
             label.className = "neuron-name";
-            label.textContent = n.display_name || n.name;
+            label.textContent = display;
             item.appendChild(dot);
             item.appendChild(label);
             dom.neuronList.appendChild(item);
-            neuronEls[n.name] = item;
+            skillEls[name] = item;
+        }
+        if (!list.length) {
+            const empty = document.createElement("div");
+            empty.className = "neuron-item is-idle";
+            empty.style.opacity = "0.5";
+            empty.textContent = "(no skills loaded)";
+            dom.neuronList.appendChild(empty);
         }
     }
 
-    function setNeuronState(name, state) {
-        const el = neuronEls[name];
-        if (!el) return;
-        el.classList.remove("is-idle", "is-thinking", "is-active");
-        el.classList.add(`is-${state}`);
-    }
-
-    function setAllNeuronsState(state) {
-        for (const name of Object.keys(neuronEls)) {
-            setNeuronState(name, state);
+    function setAllSkillsState(state) {
+        for (const el of Object.values(skillEls)) {
+            el.classList.remove("is-idle", "is-thinking", "is-active");
+            el.classList.add(`is-${state}`);
         }
     }
-
-    let activeNeuronTimer = null;
-    function flashNeuron(name, durationMs = 2500) {
-        setAllNeuronsState("idle");
-        setNeuronState(name, "active");
-        if (activeNeuronTimer) clearTimeout(activeNeuronTimer);
-        activeNeuronTimer = setTimeout(() => {
-            setNeuronState(name, "idle");
-            activeNeuronTimer = null;
-        }, durationMs);
-    }
-
-    loadNeurons();
-
-    // ---- WebSocket ----
-    const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/ws/chat`;
-    const ws = new JarvisWebSocket(wsUrl, {
-        onOpen: () => {
-            setWsStatus(true);
-            appendSystemMessage("Connection established. JARVIS is online.");
-        },
-        onMessage: (data) => {
-            if (data.type === "response") {
-                hideTyping();
-                appendMessage("jarvis", data.content, data.neuron);
-                if (data.neuron && data.neuron !== "error") {
-                    flashNeuron(data.neuron);
-                } else {
-                    setAllNeuronsState("idle");
-                }
-            }
-        },
-        onClose: () => {
-            setWsStatus(false);
-        },
-        onError: (err) => {
-            console.error("WebSocket error", err);
-        },
-    });
-    ws.connect();
-
-    // ---- UI events ----
-    function sendMessage() {
-        const text = dom.chatInput.value.trim();
-        if (!text) return;
-        if (!ws.send({ message: text })) {
-            appendSystemMessage("Not connected. Trying to reconnect...");
-            return;
-        }
-        appendMessage("user", text);
-        dom.chatInput.value = "";
-        showTyping();
-        setAllNeuronsState("thinking");
-    }
-
-    dom.sendBtn.addEventListener("click", sendMessage);
-    dom.chatInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
 
     // ---- Rendering ----
-    function appendMessage(role, content, neuron) {
+    function appendUserMessage(text) {
         const row = document.createElement("div");
-        row.className = `message message-${role}`;
-        if (role === "jarvis" && neuron && neuron !== "error") {
-            const tag = document.createElement("div");
-            tag.className = "neuron-tag";
-            tag.textContent = neuron;
-            row.appendChild(tag);
-        }
+        row.className = "message message-user";
         const bubble = document.createElement("div");
         bubble.className = "message-bubble";
-        bubble.textContent = content;
+        bubble.textContent = text;
         row.appendChild(bubble);
         dom.chatMessages.appendChild(row);
-        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
-        messageCount++;
-        dom.msgCount.textContent = `Messages: ${messageCount}`;
+        scrollToBottom();
+        bumpCount();
+    }
+
+    function startAssistantBubble() {
+        const row = document.createElement("div");
+        row.className = "message message-jarvis";
+        const tag = document.createElement("div");
+        tag.className = "neuron-tag";
+        tag.textContent = ASSISTANT_NAME;
+        row.appendChild(tag);
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        bubble.textContent = "";
+        row.appendChild(bubble);
+        dom.chatMessages.appendChild(row);
+        scrollToBottom();
+        bumpCount();
+        return bubble;
     }
 
     function appendSystemMessage(content) {
@@ -151,7 +100,16 @@
         row.className = "message message-system";
         row.textContent = content;
         dom.chatMessages.appendChild(row);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
         dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+    }
+
+    function bumpCount() {
+        messageCount++;
+        dom.msgCount.textContent = `Messages: ${messageCount}`;
     }
 
     function showTyping() {
@@ -176,6 +134,88 @@
         }
     }
 
+    // ---- Client wiring ----
+    if (!OpenClaw.getToken()) {
+        appendSystemMessage(
+            "No gateway token configured. Open this URL once with " +
+            "?token=<your-gateway-token> appended (it will be saved and removed from the URL)."
+        );
+        setWsStatus(false);
+        return;
+    }
+
+    const client = new OpenClaw.Client({
+        handlers: {
+            onConnect: (info) => {
+                setWsStatus(true);
+                appendSystemMessage(`Gateway online (protocol ${info?.protocol ?? "?"}). Talking to ${ASSISTANT_NAME}.`);
+            },
+            onDisconnect: () => setWsStatus(false),
+            onAuthError: (kind, err) => {
+                setWsStatus(false);
+                if (kind === "missing_token") {
+                    appendSystemMessage("Missing gateway token.");
+                } else {
+                    appendSystemMessage(`Auth rejected: ${err?.message || kind}. Reset token via ?token=...`);
+                }
+            },
+            onError: (err) => {
+                console.error("OpenClaw error", err);
+            },
+            onTools: (catalog) => {
+                renderSkills(catalog);
+            },
+            onAssistantStart: () => {
+                hideTyping();
+                setAllSkillsState("idle");
+                activeBubble = startAssistantBubble();
+            },
+            onAssistantDelta: (_delta, fullText) => {
+                if (!activeBubble) activeBubble = startAssistantBubble();
+                activeBubble.textContent = fullText;
+                scrollToBottom();
+            },
+            onAssistantFinal: () => {
+                activeBubble = null;
+            },
+        },
+    });
+    client.connect();
+
+    // ---- UI events ----
+    function sendMessage() {
+        const text = dom.chatInput.value.trim();
+        if (!text) return;
+        if (!client.connected) {
+            appendSystemMessage("Not connected to gateway yet. Wait for handshake or reload.");
+            return;
+        }
+        if (!client.sendMessage(text)) {
+            appendSystemMessage("Failed to send message.");
+            return;
+        }
+        appendUserMessage(text);
+        dom.chatInput.value = "";
+        showTyping();
+        setAllSkillsState("thinking");
+    }
+
+    dom.sendBtn.addEventListener("click", sendMessage);
+    dom.chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // ---- Quick commands (placeholder, send as text) ----
+    document.querySelectorAll(".cmd-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            dom.chatInput.value = btn.dataset.cmd;
+            sendMessage();
+        });
+    });
+
     // ---- Clock ----
     function tickClock() {
         const now = new Date();
@@ -185,12 +225,4 @@
     }
     tickClock();
     setInterval(tickClock, 1000);
-
-    // ---- Quick commands (placeholder, send as text) ----
-    document.querySelectorAll(".cmd-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            dom.chatInput.value = btn.dataset.cmd;
-            sendMessage();
-        });
-    });
 })();
