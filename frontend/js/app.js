@@ -1,220 +1,138 @@
 /**
- * JARVIS HUD — talks directly to the OpenClaw gateway over WebSocket.
- *
- * No backend of our own — the gateway is the single source of truth.
- * Token + gatewayUrl + session are persisted to localStorage; first time
- * the user opens the page they should append `?token=...` to the URL.
+ * App entry — wires the WebSocket client, the state store, the
+ * renderer and the input UI. Almost all logic is data flow:
+ * gateway events feed state, state changes drive the renderer.
  */
-(function () {
-    "use strict";
+import { OpenClawClient, getToken } from "./openclaw.js";
+import {
+    state,
+    subscribe,
+    update,
+    pushMessage,
+    updateMessage,
+    setSkills,
+    setAllSkillStates,
+} from "./state.js";
+import { renderAll } from "./render.js";
+import "./animations.js";
 
-    const ASSISTANT_NAME = "ATLAS";
+subscribe((s, patch) => renderAll(s, patch));
 
-    const dom = {
-        chatMessages: document.getElementById("chat-messages"),
-        chatInput: document.getElementById("chat-input"),
-        sendBtn: document.getElementById("send-btn"),
-        typingIndicator: document.getElementById("typing-indicator"),
-        wsStatus: document.getElementById("ws-status"),
-        statusIndicator: document.getElementById("status-indicator"),
-        statusText: document.getElementById("status-text"),
-        msgCount: document.getElementById("msg-count"),
-        clock: document.getElementById("hud-clock"),
-        date: document.getElementById("hud-date"),
-        neuronList: document.getElementById("neuron-list"),
-    };
+// First paint with the full state as a single patch.
+renderAll(state, {
+    wsStatus: state.wsStatus,
+    agentState: state.agentState,
+    messages: state.messages,
+    messageCount: state.messageCount,
+    skills: state.skills,
+    skillStates: state.skillStates,
+});
 
-    let messageCount = 0;
-    const skillEls = {}; // skill name -> item element
-    let activeBubble = null; // streaming target
+let streamingId = null;
 
-    // ---- Skills panel ----
-    function renderSkills(catalog) {
-        const tools = (catalog && (catalog.tools || catalog.skills || catalog)) || [];
-        const list = Array.isArray(tools) ? tools : [];
-        dom.neuronList.innerHTML = "";
-        for (const t of list) {
-            const name = t.name || t.id || "?";
-            const display = t.displayName || t.title || name;
-            const item = document.createElement("div");
-            item.className = "neuron-item is-idle";
-            item.title = t.description || display;
-            const dot = document.createElement("span");
-            dot.className = "neuron-dot";
-            const label = document.createElement("span");
-            label.className = "neuron-name";
-            label.textContent = display;
-            item.appendChild(dot);
-            item.appendChild(label);
-            dom.neuronList.appendChild(item);
-            skillEls[name] = item;
-        }
-        if (!list.length) {
-            const empty = document.createElement("div");
-            empty.className = "neuron-item is-idle";
-            empty.style.opacity = "0.5";
-            empty.textContent = "(no skills loaded)";
-            dom.neuronList.appendChild(empty);
-        }
-    }
-
-    function setAllSkillsState(state) {
-        for (const el of Object.values(skillEls)) {
-            el.classList.remove("is-idle", "is-thinking", "is-active");
-            el.classList.add(`is-${state}`);
-        }
-    }
-
-    // ---- Rendering ----
-    function appendUserMessage(text) {
-        const row = document.createElement("div");
-        row.className = "message message-user";
-        const bubble = document.createElement("div");
-        bubble.className = "message-bubble";
-        bubble.textContent = text;
-        row.appendChild(bubble);
-        dom.chatMessages.appendChild(row);
-        scrollToBottom();
-        bumpCount();
-    }
-
-    function startAssistantBubble() {
-        const row = document.createElement("div");
-        row.className = "message message-jarvis";
-        const tag = document.createElement("div");
-        tag.className = "neuron-tag";
-        tag.textContent = ASSISTANT_NAME;
-        row.appendChild(tag);
-        const bubble = document.createElement("div");
-        bubble.className = "message-bubble";
-        bubble.textContent = "";
-        row.appendChild(bubble);
-        dom.chatMessages.appendChild(row);
-        scrollToBottom();
-        bumpCount();
-        return bubble;
-    }
-
-    function appendSystemMessage(content) {
-        const row = document.createElement("div");
-        row.className = "message message-system";
-        row.textContent = content;
-        dom.chatMessages.appendChild(row);
-        scrollToBottom();
-    }
-
-    function scrollToBottom() {
-        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
-    }
-
-    function bumpCount() {
-        messageCount++;
-        dom.msgCount.textContent = `Messages: ${messageCount}`;
-    }
-
-    function showTyping() {
-        dom.typingIndicator.style.display = "";
-    }
-
-    function hideTyping() {
-        dom.typingIndicator.style.display = "none";
-    }
-
-    function setWsStatus(connected) {
-        if (connected) {
-            dom.wsStatus.innerHTML = '<span class="ws-dot connected"></span> CONNECTED';
-            dom.statusIndicator.classList.remove("offline");
-            dom.statusIndicator.classList.add("online");
-            dom.statusText.textContent = "SYSTEMS ONLINE";
-        } else {
-            dom.wsStatus.innerHTML = '<span class="ws-dot disconnected"></span> DISCONNECTED';
-            dom.statusIndicator.classList.remove("online");
-            dom.statusIndicator.classList.add("offline");
-            dom.statusText.textContent = "RECONNECTING";
-        }
-    }
-
-    // ---- Client wiring ----
-    if (!OpenClaw.getToken()) {
-        appendSystemMessage(
+if (!getToken()) {
+    pushMessage({
+        role: "system",
+        text:
             "No gateway token configured. Open this URL once with " +
-            "?token=<your-gateway-token> appended (it will be saved and removed from the URL)."
-        );
-        setWsStatus(false);
-        return;
-    }
-
-    const client = new OpenClaw.Client({
+            "?token=<your-gateway-token> appended (it will be saved and removed from the URL).",
+    });
+    update({ wsStatus: "auth_error" });
+} else {
+    const client = new OpenClawClient({
         handlers: {
             onConnect: (info) => {
-                setWsStatus(true);
-                appendSystemMessage(`Gateway online (protocol ${info?.protocol ?? "?"}). Talking to ${ASSISTANT_NAME}.`);
+                update({ wsStatus: "connected" });
+                pushMessage({
+                    role: "system",
+                    text: `Gateway online (protocol ${info?.protocol ?? "?"}). Talking to ATLAS.`,
+                });
             },
-            onDisconnect: () => setWsStatus(false),
+            onDisconnect: () => update({ wsStatus: "disconnected" }),
             onAuthError: (kind, err) => {
-                setWsStatus(false);
-                if (kind === "missing_token") {
-                    appendSystemMessage("Missing gateway token.");
-                } else {
-                    appendSystemMessage(`Auth rejected: ${err?.message || kind}. Reset token via ?token=...`);
-                }
+                update({ wsStatus: "auth_error" });
+                pushMessage({
+                    role: "system",
+                    text:
+                        kind === "missing_token"
+                            ? "Missing gateway token."
+                            : `Auth rejected: ${err?.message || kind}. Reset token via ?token=...`,
+                });
             },
-            onError: (err) => {
-                console.error("OpenClaw error", err);
-            },
+            onError: (err) => console.error("OpenClaw error", err),
             onTools: (catalog) => {
-                renderSkills(catalog);
+                const list =
+                    (catalog?.tools || catalog?.skills || (Array.isArray(catalog) ? catalog : [])) || [];
+                setSkills(
+                    list.map((t) => ({
+                        name: t.name || t.id || "?",
+                        displayName: t.displayName || t.title || t.name,
+                        description: t.description || "",
+                    })),
+                );
             },
             onAssistantStart: () => {
-                hideTyping();
-                setAllSkillsState("idle");
-                activeBubble = startAssistantBubble();
+                update({ agentState: "streaming" });
+                setAllSkillStates("idle");
+                const m = pushMessage({ role: "assistant", text: "" });
+                streamingId = m.id;
             },
             onAssistantDelta: (_delta, fullText) => {
-                if (!activeBubble) activeBubble = startAssistantBubble();
-                activeBubble.textContent = fullText;
-                scrollToBottom();
+                if (!streamingId) {
+                    const m = pushMessage({ role: "assistant", text: fullText });
+                    streamingId = m.id;
+                } else {
+                    updateMessage(streamingId, { text: fullText });
+                }
             },
             onAssistantFinal: () => {
-                activeBubble = null;
+                streamingId = null;
+                update({ agentState: "idle" });
             },
         },
     });
+
+    update({ wsStatus: "connecting" });
     client.connect();
 
-    // ---- UI events ----
+    const chatInput = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("send-btn");
+
     function sendMessage() {
-        const text = dom.chatInput.value.trim();
+        const text = chatInput.value.trim();
         if (!text) return;
-        if (!client.connected) {
-            appendSystemMessage("Not connected to gateway yet. Wait for handshake or reload.");
+        if (state.wsStatus !== "connected") {
+            pushMessage({ role: "system", text: "Not connected to gateway yet. Wait for handshake or reload." });
             return;
         }
         if (!client.sendMessage(text)) {
-            appendSystemMessage("Failed to send message.");
+            pushMessage({ role: "system", text: "Failed to send message." });
             return;
         }
-        appendUserMessage(text);
-        dom.chatInput.value = "";
-        showTyping();
-        setAllSkillsState("thinking");
+        pushMessage({ role: "user", text });
+        chatInput.value = "";
+        update({ agentState: "thinking" });
+        setAllSkillStates("thinking");
     }
 
-    dom.sendBtn.addEventListener("click", sendMessage);
-    dom.chatInput.addEventListener("keydown", (e) => {
+    sendBtn.addEventListener("click", sendMessage);
+    chatInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
+}
 
-    // ---- Clock ----
-    function tickClock() {
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, "0");
-        dom.clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        dom.date.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
-    }
-    tickClock();
-    setInterval(tickClock, 1000);
-})();
+// ---- Clock ----
+const clockEl = document.getElementById("hud-clock");
+const dateEl = document.getElementById("hud-date");
+const pad = (n) => String(n).padStart(2, "0");
+
+function tickClock() {
+    const now = new Date();
+    if (clockEl) clockEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    if (dateEl) dateEl.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+}
+tickClock();
+setInterval(tickClock, 1000);

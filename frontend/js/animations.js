@@ -1,25 +1,24 @@
 /**
- * JARVIS HUD — Animations Engine
- * ================================
- * Particle background, neural activity graph,
- * and HUD visual effects.
+ * Ambient HUD visuals: particle background canvas + neural-activity
+ * graph. Both self-instantiate on import. The neural graph reads
+ * `agentState` from the store so its activity tracks what the
+ * agent is doing.
  */
+import { state, subscribe } from "./state.js";
 
-// ---- Particle Background ----
 class ParticleBackground {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         if (!this.canvas) return;
-        
-        this.ctx = this.canvas.getContext('2d');
+
+        this.ctx = this.canvas.getContext("2d");
         this.particles = [];
-        this.connections = [];
         this.particleCount = 80;
         this.maxDistance = 150;
         this.animationId = null;
 
         this._resize();
-        window.addEventListener('resize', () => this._resize());
+        window.addEventListener("resize", () => this._resize());
         this._initParticles();
         this.animate();
     }
@@ -44,177 +43,130 @@ class ParticleBackground {
     }
 
     animate() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const { ctx, canvas, particles, maxDistance } = this;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Update and draw particles
-        for (const p of this.particles) {
+        for (const p of particles) {
             p.x += p.vx;
             p.y += p.vy;
+            if (p.x < 0) p.x = canvas.width;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.y < 0) p.y = canvas.height;
+            if (p.y > canvas.height) p.y = 0;
 
-            // Wrap around edges
-            if (p.x < 0) p.x = this.canvas.width;
-            if (p.x > this.canvas.width) p.x = 0;
-            if (p.y < 0) p.y = this.canvas.height;
-            if (p.y > this.canvas.height) p.y = 0;
-
-            // Draw particle
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = `rgba(0, 212, 255, ${p.opacity})`;
-            this.ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 212, 255, ${p.opacity})`;
+            ctx.fill();
         }
 
-        // Draw connections
-        for (let i = 0; i < this.particles.length; i++) {
-            for (let j = i + 1; j < this.particles.length; j++) {
-                const dx = this.particles[i].x - this.particles[j].x;
-                const dy = this.particles[i].y - this.particles[j].y;
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < this.maxDistance) {
-                    const opacity = (1 - dist / this.maxDistance) * 0.15;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(this.particles[i].x, this.particles[i].y);
-                    this.ctx.lineTo(this.particles[j].x, this.particles[j].y);
-                    this.ctx.strokeStyle = `rgba(0, 212, 255, ${opacity})`;
-                    this.ctx.lineWidth = 0.5;
-                    this.ctx.stroke();
+                if (dist < maxDistance) {
+                    const opacity = (1 - dist / maxDistance) * 0.15;
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(0, 212, 255, ${opacity})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
                 }
             }
         }
 
         this.animationId = requestAnimationFrame(() => this.animate());
     }
-
-    destroy() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-    }
 }
 
-
-// ---- Neural Activity Graph ----
 class NeuralActivityGraph {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         if (!this.canvas) return;
 
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext("2d");
         this.data = new Array(100).fill(0);
         this.isActive = false;
         this.animationId = null;
         this.baseLevel = 0.15;
 
-        this._startIdleAnimation();
+        subscribe((s, patch) => {
+            if ("agentState" in patch) {
+                this.isActive = s.agentState === "thinking" || s.agentState === "streaming";
+            }
+        });
+
+        this._loop();
     }
 
-    _startIdleAnimation() {
+    _loop() {
         const draw = () => {
-            // Shift data left
             this.data.shift();
-
-            // Add new data point
-            let value;
-            if (this.isActive) {
-                // Active: high frequency, larger amplitude
-                value = 0.3 + Math.random() * 0.6 + Math.sin(Date.now() / 100) * 0.15;
-            } else {
-                // Idle: gentle wave
-                value = this.baseLevel + Math.sin(Date.now() / 800) * 0.08 + Math.random() * 0.05;
-            }
+            const value = this.isActive
+                ? 0.3 + Math.random() * 0.6 + Math.sin(Date.now() / 100) * 0.15
+                : this.baseLevel + Math.sin(Date.now() / 800) * 0.08 + Math.random() * 0.05;
             this.data.push(Math.min(1, Math.max(0, value)));
 
-            // Clear
             const w = this.canvas.width;
             const h = this.canvas.height;
-            this.ctx.clearRect(0, 0, w, h);
+            const ctx = this.ctx;
+            ctx.clearRect(0, 0, w, h);
 
-            // Draw grid
-            this.ctx.strokeStyle = 'rgba(0, 212, 255, 0.05)';
-            this.ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "rgba(0, 212, 255, 0.05)";
+            ctx.lineWidth = 0.5;
             for (let y = 0; y < h; y += 20) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, y);
-                this.ctx.lineTo(w, y);
-                this.ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
             }
 
-            // Draw wave
-            const gradient = this.ctx.createLinearGradient(0, 0, 0, h);
-            gradient.addColorStop(0, 'rgba(0, 212, 255, 0.4)');
-            gradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
+            const gradient = ctx.createLinearGradient(0, 0, 0, h);
+            gradient.addColorStop(0, "rgba(0, 212, 255, 0.4)");
+            gradient.addColorStop(1, "rgba(0, 212, 255, 0)");
 
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, h);
-
+            ctx.beginPath();
+            ctx.moveTo(0, h);
             for (let i = 0; i < this.data.length; i++) {
                 const x = (i / this.data.length) * w;
-                const y = h - (this.data[i] * h * 0.8) - 5;
+                const y = h - this.data[i] * h * 0.8 - 5;
                 if (i === 0) {
-                    this.ctx.lineTo(x, y);
+                    ctx.lineTo(x, y);
                 } else {
-                    // Smooth curve
                     const prevX = ((i - 1) / this.data.length) * w;
-                    const prevY = h - (this.data[i - 1] * h * 0.8) - 5;
+                    const prevY = h - this.data[i - 1] * h * 0.8 - 5;
                     const cpX = (prevX + x) / 2;
-                    this.ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                    ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
                 }
             }
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
 
-            this.ctx.lineTo(w, h);
-            this.ctx.closePath();
-            this.ctx.fillStyle = gradient;
-            this.ctx.fill();
-
-            // Draw line on top
-            this.ctx.beginPath();
+            ctx.beginPath();
             for (let i = 0; i < this.data.length; i++) {
                 const x = (i / this.data.length) * w;
-                const y = h - (this.data[i] * h * 0.8) - 5;
-                if (i === 0) this.ctx.moveTo(x, y);
-                else this.ctx.lineTo(x, y);
+                const y = h - this.data[i] * h * 0.8 - 5;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             }
-            this.ctx.strokeStyle = this.isActive ? 'rgba(0, 255, 136, 0.8)' : 'rgba(0, 212, 255, 0.6)';
-            this.ctx.lineWidth = 1.5;
-            this.ctx.stroke();
+            ctx.strokeStyle = this.isActive
+                ? "rgba(0, 255, 136, 0.8)"
+                : "rgba(0, 212, 255, 0.6)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
 
             this.animationId = requestAnimationFrame(draw);
         };
-
         draw();
     }
-
-    setActive(active) {
-        this.isActive = active;
-    }
-
-    destroy() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-    }
 }
 
+new ParticleBackground("bg-canvas");
+new NeuralActivityGraph("neural-canvas");
 
-// ---- Clock ----
-function updateClock() {
-    const now = new Date();
-    const clockEl = document.getElementById('hud-clock');
-    const dateEl = document.getElementById('hud-date');
-
-    if (clockEl) {
-        clockEl.textContent = now.toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        });
-    }
-    if (dateEl) {
-        dateEl.textContent = now.toLocaleDateString('en-CA'); // YYYY-MM-DD format
-    }
-}
-
-// Start clock
-setInterval(updateClock, 1000);
-updateClock();
+// Reference state to silence "unused import" linters when no patch yet exists.
+void state;
