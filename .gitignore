@@ -45,3 +45,6 @@ htmlcov/
 
 # Claude Code internals
 .claude/
+
+# Local scratch (bundles downloaded for offline analysis, etc.)
+.cache/
