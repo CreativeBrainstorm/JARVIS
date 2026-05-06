@@ -13,6 +13,8 @@ export const state = {
 
     messages: [],               // [{id, role, text, neuron?, ts}]
     messageCount: 0,
+
+    events: [],                 // [{ts, kind, label}], capped at 50
 };
 
 const subscribers = new Set();
@@ -66,4 +68,10 @@ export function setAllNeuronStates(value) {
     for (const id of Object.keys(state.neuronStates)) next[id] = value;
     state.neuronStates = next;
     notify({ neuronStates: state.neuronStates });
+}
+
+export function pushEvent(evt) {
+    const full = { ts: Date.now(), kind: "info", ...evt };
+    state.events = [...state.events, full].slice(-50);
+    notify({ events: state.events, _newEvent: full });
 }

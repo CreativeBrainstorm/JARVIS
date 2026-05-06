@@ -12,6 +12,7 @@ import {
     updateMessage,
     setNeurons,
     setAllNeuronStates,
+    pushEvent,
 } from "./state.js";
 import { renderAll } from "./render.js";
 import { mountMolecule } from "./molecule.js";
@@ -48,14 +49,19 @@ if (!getToken()) {
         handlers: {
             onConnect: (info) => {
                 update({ wsStatus: "connected" });
+                pushEvent({ kind: "info", label: `gateway online · protocol ${info?.protocol ?? "?"}` });
                 pushMessage({
                     role: "system",
                     text: `Gateway online (protocol ${info?.protocol ?? "?"}). Talking to ATLAS.`,
                 });
             },
-            onDisconnect: () => update({ wsStatus: "disconnected" }),
+            onDisconnect: () => {
+                update({ wsStatus: "disconnected" });
+                pushEvent({ kind: "error", label: "gateway disconnected" });
+            },
             onAuthError: (kind, err) => {
                 update({ wsStatus: "auth_error" });
+                pushEvent({ kind: "error", label: `auth rejected · ${err?.message || kind}` });
                 pushMessage({
                     role: "system",
                     text:
@@ -64,10 +70,14 @@ if (!getToken()) {
                             : `Auth rejected: ${err?.message || kind}. Reset token via ?token=...`,
                 });
             },
-            onError: (err) => console.error("OpenClaw error", err),
+            onError: (err) => {
+                console.error("OpenClaw error", err);
+                pushEvent({ kind: "error", label: `error · ${err?.message || "see console"}` });
+            },
             onAssistantStart: () => {
                 update({ agentState: "streaming" });
                 setAllNeuronStates("idle");
+                pushEvent({ kind: "tool", label: "atlas: stream start" });
                 const m = pushMessage({ role: "assistant", text: "" });
                 streamingId = m.id;
             },
@@ -82,11 +92,13 @@ if (!getToken()) {
             onAssistantFinal: () => {
                 streamingId = null;
                 update({ agentState: "idle" });
+                pushEvent({ kind: "tool", label: "atlas: stream end" });
             },
         },
     });
 
     update({ wsStatus: "connecting" });
+    pushEvent({ kind: "info", label: "gateway connecting…" });
     client.connect();
 
     const chatInput = document.getElementById("chat-input");
@@ -104,6 +116,7 @@ if (!getToken()) {
             return;
         }
         pushMessage({ role: "user", text });
+        pushEvent({ kind: "info", label: `→ user · ${text.length} chars` });
         chatInput.value = "";
         update({ agentState: "thinking" });
         setAllNeuronStates("thinking");

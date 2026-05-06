@@ -15,7 +15,15 @@ const dom = {
     statusText: document.getElementById("status-text"),
     msgCount: document.getElementById("msg-count"),
     neuronList: document.getElementById("neuron-list"),
+    activityFeed: document.getElementById("activity-feed"),
 };
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+function fmtTime(ts) {
+    const d = new Date(ts);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
 
 // Map of message id → bubble element, so streaming updates don't rebuild.
 const messageNodes = new Map();
@@ -128,6 +136,19 @@ function renderNeurons(state, patch) {
     }
 }
 
+function renderActivity(_state, patch) {
+    if (!patch._newEvent || !dom.activityFeed) return;
+    const evt = patch._newEvent;
+    const item = document.createElement("div");
+    item.className = `activity-item ${evt.kind || ""}`.trim();
+    item.textContent = `${fmtTime(evt.ts)}  ${evt.label}`;
+    dom.activityFeed.appendChild(item);
+    while (dom.activityFeed.children.length > 50) {
+        dom.activityFeed.removeChild(dom.activityFeed.firstChild);
+    }
+    dom.activityFeed.scrollTop = dom.activityFeed.scrollHeight;
+}
+
 export function renderAll(state, patch) {
     renderTopbar(state, patch);
     renderConnectionStatus(state, patch);
@@ -135,4 +156,5 @@ export function renderAll(state, patch) {
     renderMsgCount(state, patch);
     renderMessages(state, patch);
     renderNeurons(state, patch);
+    renderActivity(state, patch);
 }
