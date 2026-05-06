@@ -15,6 +15,10 @@ export const state = {
     messageCount: 0,
 
     events: [],                 // [{ts, kind, label}], capped at 50
+
+    voiceMode: "off",           // off | passive | active
+    voiceListening: false,
+    voiceSpeaking: false,
 };
 
 const subscribers = new Set();

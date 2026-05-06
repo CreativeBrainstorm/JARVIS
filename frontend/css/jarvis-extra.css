@@ -207,3 +207,98 @@
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Microphone toggle in the input bar (off / passive / active)
+   plus listening + speaking visual states
+   ────────────────────────────────────────────────────────────── */
+
+.mic-btn {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    margin-right: 6px;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(180, 200, 220, 0.5);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+    flex-shrink: 0;
+}
+
+.mic-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--border-primary);
+}
+
+.mic-btn .mic-icon {
+    position: relative;
+    z-index: 1;
+}
+
+/* OFF — dim with a strikethrough */
+.mic-btn.is-off { color: rgba(180, 200, 220, 0.45); }
+.mic-btn.is-off .mic-icon { opacity: 0.55; }
+.mic-btn.is-off::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    top: 50%;
+    height: 1.5px;
+    background: rgba(180, 200, 220, 0.55);
+    transform: rotate(-45deg);
+    transform-origin: center;
+    pointer-events: none;
+}
+
+/* PASSIVE — TTS only, soft cyan */
+.mic-btn.is-passive {
+    color: var(--color-primary);
+    border-color: rgba(0, 216, 255, 0.32);
+    background: rgba(0, 212, 255, 0.05);
+}
+
+/* ACTIVE — listening with wake-word, brighter outline */
+.mic-btn.is-active {
+    color: var(--color-primary);
+    border-color: rgba(0, 216, 255, 0.65);
+    background: rgba(0, 212, 255, 0.10);
+    box-shadow: 0 0 10px rgba(0, 216, 255, 0.35);
+}
+
+/* outward expanding ring when actively listening for the wake word */
+.mic-pulse {
+    position: absolute;
+    inset: -2px;
+    border: 1.5px solid var(--color-primary);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mic-btn.is-listening .mic-pulse {
+    animation: mic-listen-wave 1.6s ease-out infinite;
+}
+
+@keyframes mic-listen-wave {
+    0%   { transform: scale(0.95); opacity: 0.7; }
+    100% { transform: scale(1.7);  opacity: 0; }
+}
+
+/* SPEAKING — amber, flashing softly */
+.mic-btn.is-speaking {
+    color: #ffd24c;
+    border-color: rgba(255, 210, 76, 0.55);
+    background: rgba(255, 210, 76, 0.05);
+    animation: mic-speak-flash 0.85s ease-in-out infinite;
+}
+
+@keyframes mic-speak-flash {
+    0%, 100% { box-shadow: 0 0 6px rgba(255, 210, 76, 0.45); }
+    50%      { box-shadow: 0 0 14px rgba(255, 210, 76, 0.9); }
+}

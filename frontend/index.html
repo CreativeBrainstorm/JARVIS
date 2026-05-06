@@ -79,14 +79,23 @@
                     <div class="input-glow"></div>
                     <div class="chat-input-wrapper">
                         <span class="input-prefix">❯</span>
-                        <input 
-                            type="text" 
-                            id="chat-input" 
-                            class="chat-input" 
-                            placeholder="Speak to JARVIS..." 
+                        <input
+                            type="text"
+                            id="chat-input"
+                            class="chat-input"
+                            placeholder="Speak to JARVIS..."
                             autocomplete="off"
                             spellcheck="false"
                         >
+                        <button class="mic-btn is-off" id="mic-btn" title="Voice mode (off)" aria-label="Toggle voice mode">
+                            <svg class="mic-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                            <span class="mic-pulse"></span>
+                        </button>
                         <button class="send-btn" id="send-btn" title="Send">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"/>

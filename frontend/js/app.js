@@ -17,6 +17,7 @@ import {
 import { renderAll } from "./render.js";
 import { mountMolecule } from "./molecule.js";
 import { NEURONS, inferNeuronFromToolName } from "./neurons.config.js";
+import { Voice } from "./voice.js";
 import "./animations.js";
 
 mountMolecule(document.getElementById("molecule"));
@@ -89,9 +90,15 @@ if (!getToken()) {
                 }
             },
             onAssistantFinal: () => {
+                const finishedId = streamingId;
                 streamingId = null;
                 update({ agentState: "idle" });
                 pushEvent({ kind: "tool", label: "atlas: stream end" });
+                // Read the finished response out loud if voice mode is on.
+                if (finishedId) {
+                    const m = state.messages.find((x) => x.id === finishedId);
+                    if (m?.text) voice.speak(m.text);
+                }
             },
             onToolEvent: (kind, info) => {
                 const name = info?.name || kind;
@@ -113,8 +120,32 @@ if (!getToken()) {
     pushEvent({ kind: "info", label: "gateway connecting…" });
     client.connect();
 
+    // ─── Voice (TTS + STT with wake-word) ──────────────────────────────
+    const voice = new Voice({
+        onTranscript: (text) => {
+            if (state.wsStatus !== "connected") {
+                pushEvent({ kind: "error", label: "voice · not connected" });
+                return;
+            }
+            if (!client.sendMessage(text)) {
+                pushEvent({ kind: "error", label: "voice · send failed" });
+                return;
+            }
+            pushMessage({ role: "user", text });
+            pushEvent({ kind: "info", label: `→ voice · ${text.length} chars` });
+            update({ agentState: "thinking" });
+        },
+        onState: ({ mode, listening, speaking }) => {
+            update({ voiceMode: mode, voiceListening: listening, voiceSpeaking: speaking });
+        },
+        onError: (e) => {
+            pushEvent({ kind: "error", label: `voice · ${e?.error || e?.message || "error"}` });
+        },
+    });
+
     const chatInput = document.getElementById("chat-input");
     const sendBtn = document.getElementById("send-btn");
+    const micBtn = document.getElementById("mic-btn");
 
     function sendMessage() {
         const text = chatInput.value.trim();
@@ -140,6 +171,10 @@ if (!getToken()) {
             sendMessage();
         }
     });
+
+    if (micBtn) {
+        micBtn.addEventListener("click", () => voice.cycleMode());
+    }
 }
 
 // ---- Clock ----

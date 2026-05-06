@@ -16,6 +16,7 @@ const dom = {
     msgCount: document.getElementById("msg-count"),
     neuronList: document.getElementById("neuron-list"),
     activityFeed: document.getElementById("activity-feed"),
+    micBtn: document.getElementById("mic-btn"),
 };
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -136,6 +137,22 @@ function renderNeurons(state, patch) {
     }
 }
 
+function renderVoice(state, patch) {
+    if (!dom.micBtn) return;
+    if (!("voiceMode" in patch || "voiceListening" in patch || "voiceSpeaking" in patch)) return;
+    const mode = state.voiceMode || "off";
+    dom.micBtn.classList.remove("is-off", "is-passive", "is-active");
+    dom.micBtn.classList.add(`is-${mode}`);
+    dom.micBtn.classList.toggle("is-listening", !!state.voiceListening);
+    dom.micBtn.classList.toggle("is-speaking", !!state.voiceSpeaking);
+    const titleByMode = {
+        off: "Voice: OFF — click to enable (passive read-aloud)",
+        passive: "Voice: PASSIVE — ATLAS reads replies. Click for ACTIVE",
+        active: "Voice: ACTIVE — say 'Jarvis …' to talk. Click to turn OFF",
+    };
+    dom.micBtn.title = titleByMode[mode] || "";
+}
+
 function renderActivity(_state, patch) {
     if (!patch._newEvent || !dom.activityFeed) return;
     const evt = patch._newEvent;
@@ -156,5 +173,6 @@ export function renderAll(state, patch) {
     renderMsgCount(state, patch);
     renderMessages(state, patch);
     renderNeurons(state, patch);
+    renderVoice(state, patch);
     renderActivity(state, patch);
 }
